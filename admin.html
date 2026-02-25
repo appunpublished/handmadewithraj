@@ -1,0 +1,552 @@
+<!doctype html>
+<html lang="en" class="h-full">
+ <head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Admin Dashboard - Handmade by Raj</title>
+  <script src="https://cdn.tailwindcss.com/3.4.17"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-storage-compat.js"></script>
+  <script src="./js/firebase-web-config.js"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500;600;700&family=Nunito+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            ivory: '#FFFEF7',
+            peach: '#FFE5D9',
+            blush: '#FFCDB2',
+            terracotta: '#E29578',
+            mocha: '#83665A',
+            charcoal: '#2D2D2D'
+          },
+          fontFamily: {
+            serif: ['Cormorant Garamond', 'Georgia', 'serif'],
+            sans: ['Nunito Sans', 'system-ui', 'sans-serif']
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    html, body { height: 100%; }
+    .input-field:focus {
+      border-color: #E29578;
+      box-shadow: 0 0 0 3px rgba(226, 149, 120, 0.2);
+    }
+    .btn-primary {
+      background: linear-gradient(135deg, #E29578 0%, #83665A 100%);
+      transition: all 0.25s ease;
+    }
+    .btn-primary:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 8px 20px rgba(226, 149, 120, 0.4);
+    }
+    .toast { animation: slideInRight 0.3s ease-out; }
+    @keyframes slideInRight {
+      from { transform: translateX(100%); opacity: 0; }
+      to { transform: translateX(0); opacity: 1; }
+    }
+    .modal-backdrop { backdrop-filter: blur(8px); }
+  </style>
+ </head>
+ <body class="h-full bg-ivory font-sans text-charcoal">
+  <div class="min-h-full">
+   <div id="toast-container" class="fixed top-20 right-4 z-50 space-y-2"></div>
+
+   <header class="sticky top-0 z-40 bg-ivory/95 backdrop-blur-sm border-b border-peach/30">
+    <div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 h-16 sm:h-20 flex items-center justify-between">
+     <div>
+      <h1 class="font-serif text-2xl sm:text-3xl font-semibold text-mocha">Admin Dashboard</h1>
+      <p class="text-xs sm:text-sm text-mocha/70">Handmade by Raj</p>
+     </div>
+     <a href="./index.html" class="px-4 py-2 border border-mocha text-mocha rounded-full text-sm hover:bg-mocha hover:text-ivory transition-all">Customer Site</a>
+    </div>
+   </header>
+
+   <main class="py-8 sm:py-12">
+    <div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
+     <div id="admin-login" class="max-w-md mx-auto">
+      <div class="text-center mb-8">
+       <h2 class="font-serif text-3xl sm:text-4xl font-bold text-mocha mb-2">Admin Login</h2>
+       <p class="text-mocha/70">Access your dashboard to manage products</p>
+      </div>
+      <div class="bg-white rounded-3xl p-8 shadow-sm">
+       <form onsubmit="handleAdminLogin(event)" class="space-y-6">
+        <div>
+         <label class="block text-sm font-medium text-mocha mb-2">Email</label>
+         <input type="email" id="admin-email" required placeholder="admin@handmadebyraj.com" class="w-full px-4 py-3 border border-peach/50 rounded-xl text-charcoal placeholder-mocha/50 input-field focus:outline-none">
+        </div>
+        <div>
+         <label class="block text-sm font-medium text-mocha mb-2">Password</label>
+         <input type="password" id="admin-password" required placeholder="Enter password" class="w-full px-4 py-3 border border-peach/50 rounded-xl text-charcoal placeholder-mocha/50 input-field focus:outline-none">
+        </div>
+        <button type="submit" class="w-full btn-primary py-4 text-ivory font-semibold rounded-full">Login</button>
+       </form>
+       <p class="text-center text-sm text-mocha/60 mt-4">Sign in with your Firebase admin account.</p>
+      </div>
+     </div>
+
+     <div id="admin-dashboard" class="hidden">
+      <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8">
+       <div>
+        <h2 class="font-serif text-3xl sm:text-4xl font-bold text-mocha">Dashboard</h2>
+        <p class="text-mocha/70">Manage your products and categories</p>
+       </div>
+       <div class="flex gap-3">
+        <button onclick="showAddProductForm()" class="btn-primary px-6 py-3 text-ivory font-semibold rounded-full">Add Product</button>
+        <button onclick="handleAdminLogout()" class="px-6 py-3 border border-mocha text-mocha font-semibold rounded-full hover:bg-mocha hover:text-ivory transition-all">Logout</button>
+       </div>
+      </div>
+
+      <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6 mb-8">
+       <div class="bg-white rounded-2xl p-6 shadow-sm"><p class="text-mocha/60 text-sm">Total Products</p><p id="stats-products" class="text-3xl font-bold text-mocha">0</p></div>
+       <div class="bg-white rounded-2xl p-6 shadow-sm"><p class="text-mocha/60 text-sm">Total Value</p><p id="stats-value" class="text-3xl font-bold text-terracotta">₹0</p></div>
+       <div class="bg-white rounded-2xl p-6 shadow-sm"><p class="text-mocha/60 text-sm">Categories</p><p id="stats-categories" class="text-3xl font-bold text-mocha">0</p></div>
+       <div class="bg-white rounded-2xl p-6 shadow-sm"><p class="text-mocha/60 text-sm">Featured</p><p id="stats-featured" class="text-3xl font-bold text-mocha">0</p></div>
+      </div>
+
+      <div class="bg-white rounded-3xl p-6 sm:p-8 shadow-sm mb-8">
+       <h3 class="font-serif text-2xl font-semibold text-mocha mb-4">Manage Categories</h3>
+       <form onsubmit="handleCategorySubmit(event)" class="grid sm:grid-cols-3 gap-4 mb-4">
+        <input type="text" id="category-name-input" required placeholder="Category name (e.g. Baby Sets)" class="sm:col-span-2 px-4 py-3 border border-peach/50 rounded-xl text-charcoal placeholder-mocha/50 input-field focus:outline-none">
+        <button type="submit" class="btn-primary px-6 py-3 text-ivory font-semibold rounded-full">Add Category</button>
+       </form>
+       <div id="admin-categories-list" class="flex flex-wrap gap-2"></div>
+      </div>
+
+      <div id="product-form-container" class="hidden bg-white rounded-3xl p-6 sm:p-8 shadow-sm mb-8">
+       <div class="flex justify-between items-center mb-6">
+        <h3 id="form-title" class="font-serif text-2xl font-semibold text-mocha">Add New Product</h3>
+        <button onclick="hideProductForm()" class="p-2 text-mocha/60 hover:text-mocha">✕</button>
+       </div>
+       <form onsubmit="handleProductSubmit(event)" class="space-y-6">
+        <input type="hidden" id="edit-product-id">
+        <div class="grid sm:grid-cols-2 gap-6">
+         <div><label class="block text-sm font-medium text-mocha mb-2">Product Name *</label><input type="text" id="product-name-input" required class="w-full px-4 py-3 border border-peach/50 rounded-xl input-field focus:outline-none"></div>
+         <div><label class="block text-sm font-medium text-mocha mb-2">Price (₹) *</label><input type="number" id="product-price-input" required min="1" class="w-full px-4 py-3 border border-peach/50 rounded-xl input-field focus:outline-none"></div>
+        </div>
+        <div class="grid sm:grid-cols-2 gap-6">
+         <div><label class="block text-sm font-medium text-mocha mb-2">Category *</label><select id="product-category-input" required class="w-full px-4 py-3 border border-peach/50 rounded-xl input-field focus:outline-none"><option value="">Select category</option></select></div>
+         <div><label class="block text-sm font-medium text-mocha mb-2">Image Emoji</label><input type="text" id="product-image-input" value="🧶" class="w-full px-4 py-3 border border-peach/50 rounded-xl input-field focus:outline-none"></div>
+        </div>
+        <div><label class="block text-sm font-medium text-mocha mb-2">Image URL (optional)</label><input type="url" id="product-image-url-input" placeholder="https://..." class="w-full px-4 py-3 border border-peach/50 rounded-xl input-field focus:outline-none"></div>
+        <div><label class="block text-sm font-medium text-mocha mb-2">Upload from device (optional)</label><input type="file" id="product-image-file-input" accept="image/*" class="w-full px-4 py-3 border border-peach/50 rounded-xl input-field focus:outline-none bg-white"><p class="text-xs text-mocha/60 mt-2">If you choose a file, it will upload to Firebase Storage and override the URL above.</p></div>
+        <div><label class="block text-sm font-medium text-mocha mb-2">Description *</label><textarea id="product-description-input" rows="3" required class="w-full px-4 py-3 border border-peach/50 rounded-xl input-field focus:outline-none resize-none"></textarea></div>
+        <div class="flex items-center gap-3"><input type="checkbox" id="product-featured-input" class="w-5 h-5 text-terracotta rounded"><label for="product-featured-input" class="text-mocha">Mark as Featured Product</label></div>
+        <div class="flex gap-4">
+         <button type="submit" id="submit-btn" class="flex-1 btn-primary py-4 text-ivory font-semibold rounded-full"><span id="submit-btn-text">Save Product</span></button>
+         <button type="button" onclick="hideProductForm()" class="px-8 py-4 border border-mocha text-mocha font-semibold rounded-full hover:bg-mocha/10">Cancel</button>
+        </div>
+       </form>
+      </div>
+
+      <div class="bg-white rounded-3xl p-6 sm:p-8 shadow-sm">
+       <h3 class="font-serif text-2xl font-semibold text-mocha mb-6">Your Products</h3>
+       <div id="admin-products-list" class="space-y-4"></div>
+       <div id="no-admin-products" class="hidden text-center py-12">
+        <h4 class="font-serif text-xl text-mocha mb-2">No products yet</h4>
+        <p class="text-mocha/60 mb-6">Start by adding your first handmade creation.</p>
+        <button onclick="showAddProductForm()" class="btn-primary px-6 py-3 text-ivory font-semibold rounded-full">Add Your First Product</button>
+       </div>
+      </div>
+     </div>
+    </div>
+   </main>
+
+   <div id="delete-modal" class="fixed inset-0 z-50 hidden flex items-center justify-center p-4">
+    <div class="absolute inset-0 bg-charcoal/50 modal-backdrop" onclick="hideDeleteModal()"></div>
+    <div class="relative bg-white rounded-3xl p-8 max-w-sm w-full shadow-2xl">
+     <h3 class="font-serif text-xl font-semibold text-mocha mb-2">Delete Product?</h3>
+     <p class="text-mocha/70 mb-6">This action cannot be undone.</p>
+     <div class="flex gap-3">
+      <button onclick="hideDeleteModal()" class="flex-1 px-4 py-3 border border-mocha text-mocha rounded-full">Cancel</button>
+      <button onclick="confirmDelete()" id="confirm-delete-btn" class="flex-1 px-4 py-3 bg-red-500 text-white rounded-full hover:bg-red-600">Delete</button>
+     </div>
+    </div>
+   </div>
+  </div>
+
+  <script>
+    let products = [];
+    let categories = [];
+    let productToDelete = null;
+    let db = null;
+    let auth = null;
+    let storage = null;
+    let unsubscribeProducts = null;
+    let unsubscribeCategories = null;
+
+    const DEFAULT_CATEGORIES = [
+      { key: 'keychains', label: 'Keychains' },
+      { key: 'toys', label: 'Toys' },
+      { key: 'accessories', label: 'Hair Accessories' },
+      { key: 'gifts', label: 'Gift Sets' }
+    ];
+
+    function slugifyCategory(name) {
+      return name.toLowerCase().trim().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+    }
+
+    function formatCategoryFromKey(key) {
+      if (!key) return 'Product';
+      return key.replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+    }
+
+    function normalizeCategories(rawCategories) {
+      const map = new Map();
+      DEFAULT_CATEGORIES.forEach(cat => map.set(cat.key, { key: cat.key, label: cat.label, isDefault: true }));
+      rawCategories.forEach(item => {
+        const key = slugifyCategory(item.key || item.slug || item.name || '');
+        const label = (item.label || item.name || '').trim();
+        if (!key || !label) return;
+        map.set(key, { key, label, isDefault: false, __backendId: item.__backendId, __raw: item });
+      });
+      return Array.from(map.values()).sort((a, b) => a.label.localeCompare(b.label));
+    }
+
+    function getCategoryLabel(key) {
+      const found = categories.find(cat => cat.key === key);
+      return found ? found.label : formatCategoryFromKey(key);
+    }
+
+    function showToast(message, type = 'info') {
+      const container = document.getElementById('toast-container');
+      const toast = document.createElement('div');
+      const bgColors = { success: 'bg-green-500', error: 'bg-red-500', info: 'bg-mocha' };
+      toast.className = `toast ${bgColors[type]} text-white px-6 py-3 rounded-full shadow-lg flex items-center gap-2`;
+      toast.innerHTML = `<span>${type === 'success' ? '✓' : type === 'error' ? '✕' : 'ℹ'}</span><span>${message}</span>`;
+      container.appendChild(toast);
+      setTimeout(() => { toast.style.opacity = '0'; toast.style.transition = 'opacity 0.3s'; setTimeout(() => toast.remove(), 300); }, 3000);
+    }
+
+    function renderAdminCategoryOptions(selectedKey = '') {
+      const select = document.getElementById('product-category-input');
+      const previous = selectedKey || select.value;
+      select.innerHTML = '<option value="">Select category</option>' + categories.map(cat => `<option value="${cat.key}">${cat.label}</option>`).join('');
+      if (previous && categories.some(cat => cat.key === previous)) select.value = previous;
+    }
+
+    function renderAdminCategories() {
+      const container = document.getElementById('admin-categories-list');
+      container.innerHTML = categories.map(cat => `
+        <div class="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-peach/40 text-mocha text-sm">
+          <span>${cat.label}</span>
+          ${cat.isDefault || !cat.__backendId ? '' : `<button onclick="deleteCategory('${cat.__backendId}')" class="text-red-600 hover:text-red-700" title="Delete category">✕</button>`}
+        </div>
+      `).join('');
+    }
+
+    function getAdminProductVisual(product) {
+      if (product.image_url) {
+        return `<img src="${product.image_url}" alt="${product.name}" class="w-full h-full object-cover rounded-lg" loading="lazy">`;
+      }
+      return `<span class="text-4xl">${product.image || '🧶'}</span>`;
+    }
+
+    function renderAdminProducts() {
+      const container = document.getElementById('admin-products-list');
+      const noProducts = document.getElementById('no-admin-products');
+      if (products.length === 0) {
+        container.innerHTML = '';
+        noProducts.classList.remove('hidden');
+        return;
+      }
+      noProducts.classList.add('hidden');
+      container.innerHTML = products.map(product => `
+        <div class="flex flex-col sm:flex-row gap-4 bg-ivory rounded-xl p-4">
+          <div class="w-full sm:w-20 h-20 bg-gradient-to-br from-peach/50 to-blush/50 rounded-lg flex items-center justify-center overflow-hidden flex-shrink-0">${getAdminProductVisual(product)}</div>
+          <div class="flex-1 min-w-0">
+            <div class="flex items-start justify-between gap-2">
+              <div>
+                <h4 class="font-semibold text-mocha flex items-center gap-2">${product.name}${product.featured ? '<span class="px-2 py-0.5 bg-terracotta text-white text-xs rounded-full">⭐ Featured</span>' : ''}</h4>
+                <p class="text-sm text-mocha/60">${getCategoryLabel(product.category)}</p>
+              </div>
+              <span class="text-lg font-bold text-terracotta">₹${product.price}</span>
+            </div>
+            <p class="text-sm text-mocha/70 mt-2">${product.description}</p>
+            <div class="flex gap-2 mt-3">
+              <button onclick="editProduct('${product.__backendId}')" class="px-4 py-2 bg-mocha text-ivory rounded-full text-sm">Edit</button>
+              <button onclick="showDeleteModal('${product.__backendId}')" class="px-4 py-2 border border-red-500 text-red-500 rounded-full text-sm">Delete</button>
+            </div>
+          </div>
+        </div>
+      `).join('');
+    }
+
+    function updateStats() {
+      document.getElementById('stats-products').textContent = products.length;
+      document.getElementById('stats-value').textContent = `₹${products.reduce((sum, p) => sum + p.price, 0)}`;
+      document.getElementById('stats-featured').textContent = products.filter(p => p.featured).length;
+      document.getElementById('stats-categories').textContent = categories.length;
+    }
+
+    function isAllowedAdmin(user) {
+      const allowList = Array.isArray(window.ADMIN_EMAILS) ? window.ADMIN_EMAILS : [];
+      if (allowList.length === 0) return true;
+      const email = (user?.email || '').toLowerCase();
+      return allowList.map(v => v.toLowerCase()).includes(email);
+    }
+
+    function bindFirestoreListeners() {
+      if (unsubscribeProducts) unsubscribeProducts();
+      if (unsubscribeCategories) unsubscribeCategories();
+
+      unsubscribeProducts = db.collection('products').onSnapshot((snapshot) => {
+        products = snapshot.docs.map((doc) => {
+          const data = doc.data();
+          const createdAt = data.createdAt && typeof data.createdAt.toDate === 'function'
+            ? data.createdAt.toDate().toISOString()
+            : data.createdAt;
+          return { __backendId: doc.id, ...data, createdAt };
+        });
+        renderAdminProducts();
+        updateStats();
+      }, () => showToast('Failed to load products', 'error'));
+
+      unsubscribeCategories = db.collection('categories').onSnapshot((snapshot) => {
+        const categoryData = snapshot.docs.map((doc) => {
+          const data = doc.data();
+          return { __backendId: doc.id, __raw: { __backendId: doc.id, ...data }, ...data };
+        });
+        categories = normalizeCategories(categoryData);
+        products.forEach(product => {
+          const key = slugifyCategory(product.category || '');
+          if (!key || categories.some(cat => cat.key === key)) return;
+          categories.push({ key, label: formatCategoryFromKey(key), isDefault: false });
+        });
+        categories.sort((a, b) => a.label.localeCompare(b.label));
+        renderAdminCategoryOptions();
+        renderAdminCategories();
+        updateStats();
+      }, () => showToast('Failed to load categories', 'error'));
+    }
+
+    function unbindFirestoreListeners() {
+      if (unsubscribeProducts) unsubscribeProducts();
+      if (unsubscribeCategories) unsubscribeCategories();
+      unsubscribeProducts = null;
+      unsubscribeCategories = null;
+      products = [];
+      categories = normalizeCategories([]);
+      renderAdminProducts();
+      renderAdminCategoryOptions();
+      renderAdminCategories();
+      updateStats();
+    }
+
+    async function initializeAdmin() {
+      categories = normalizeCategories([]);
+      renderAdminCategoryOptions();
+      renderAdminCategories();
+      updateStats();
+
+      if (!window.FIREBASE_CONFIG || window.FIREBASE_CONFIG.apiKey === 'REPLACE_ME') {
+        showToast('Add Firebase config in js/firebase-web-config.js', 'error');
+        return;
+      }
+
+      if (!firebase.apps.length) firebase.initializeApp(window.FIREBASE_CONFIG);
+      auth = firebase.auth();
+      db = firebase.firestore();
+      storage = firebase.storage();
+
+      auth.onAuthStateChanged(async (user) => {
+        if (!user) {
+          unbindFirestoreListeners();
+          document.getElementById('admin-login').classList.remove('hidden');
+          document.getElementById('admin-dashboard').classList.add('hidden');
+          return;
+        }
+
+        if (!isAllowedAdmin(user)) {
+          await auth.signOut();
+          showToast('This account is not allowed for admin access', 'error');
+          return;
+        }
+
+        document.getElementById('admin-login').classList.add('hidden');
+        document.getElementById('admin-dashboard').classList.remove('hidden');
+        bindFirestoreListeners();
+      });
+    }
+
+    async function handleAdminLogin(event) {
+      event.preventDefault();
+      if (!auth) return showToast('Firebase not initialized', 'error');
+      const email = document.getElementById('admin-email').value;
+      const password = document.getElementById('admin-password').value;
+      try {
+        await auth.signInWithEmailAndPassword(email, password);
+        showToast('Welcome back!', 'success');
+      } catch (error) {
+        showToast('Invalid email or password', 'error');
+      }
+    }
+
+    async function handleAdminLogout() {
+      if (!auth) return;
+      await auth.signOut();
+      document.getElementById('admin-email').value = '';
+      document.getElementById('admin-password').value = '';
+    }
+
+    async function handleCategorySubmit(event) {
+      event.preventDefault();
+      if (!auth.currentUser) return showToast('Please login as admin first', 'error');
+      const input = document.getElementById('category-name-input');
+      const label = input.value.trim();
+      const key = slugifyCategory(label);
+      if (!label || !key) return showToast('Enter a valid category name', 'error');
+      if (categories.some(cat => cat.key === key)) return showToast('Category already exists', 'error');
+      try {
+        await db.collection('categories').add({
+          key,
+          label,
+          createdAt: firebase.firestore.FieldValue.serverTimestamp()
+        });
+        input.value = '';
+        showToast('Category added', 'success');
+      } catch (error) {
+        showToast('Failed to add category', 'error');
+      }
+    }
+
+    async function deleteCategory(categoryId) {
+      if (!auth.currentUser) return showToast('Please login as admin first', 'error');
+      const category = categories.find(cat => cat.__backendId === categoryId);
+      if (!category) return;
+      const inUse = products.some(product => product.category === category.key);
+      if (inUse) return showToast('Cannot delete category with existing products', 'error');
+      try {
+        await db.collection('categories').doc(categoryId).delete();
+        showToast('Category deleted', 'success');
+      } catch (error) {
+        showToast('Failed to delete category', 'error');
+      }
+    }
+
+    function showAddProductForm() {
+      document.getElementById('product-form-container').classList.remove('hidden');
+      document.getElementById('form-title').textContent = 'Add New Product';
+      document.getElementById('edit-product-id').value = '';
+      document.getElementById('product-name-input').value = '';
+      document.getElementById('product-price-input').value = '';
+      document.getElementById('product-image-input').value = '🧶';
+      document.getElementById('product-image-url-input').value = '';
+      document.getElementById('product-image-file-input').value = '';
+      document.getElementById('product-description-input').value = '';
+      document.getElementById('product-featured-input').checked = false;
+      document.getElementById('submit-btn-text').textContent = 'Save Product';
+      renderAdminCategoryOptions();
+    }
+
+    function hideProductForm() {
+      document.getElementById('product-form-container').classList.add('hidden');
+    }
+
+    function editProduct(productId) {
+      const product = products.find(p => p.__backendId === productId);
+      if (!product) return;
+      document.getElementById('product-form-container').classList.remove('hidden');
+      document.getElementById('form-title').textContent = 'Edit Product';
+      document.getElementById('edit-product-id').value = productId;
+      document.getElementById('product-name-input').value = product.name;
+      document.getElementById('product-price-input').value = product.price;
+      document.getElementById('product-image-input').value = product.image || '🧶';
+      document.getElementById('product-image-url-input').value = product.image_url || '';
+      document.getElementById('product-image-file-input').value = '';
+      document.getElementById('product-description-input').value = product.description;
+      document.getElementById('product-featured-input').checked = product.featured;
+      document.getElementById('submit-btn-text').textContent = 'Update Product';
+      renderAdminCategoryOptions(product.category);
+    }
+
+    async function uploadSelectedImage() {
+      const fileInput = document.getElementById('product-image-file-input');
+      const file = fileInput.files && fileInput.files[0];
+      if (!file) return null;
+      if (!file.type.startsWith('image/')) throw new Error('Only image files are allowed');
+      if (!storage) throw new Error('Firebase storage not initialized');
+
+      const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
+      const path = `products/${Date.now()}_${safeName}`;
+      const ref = storage.ref().child(path);
+      const task = await ref.put(file, { contentType: file.type });
+      return task.ref.getDownloadURL();
+    }
+
+    async function handleProductSubmit(event) {
+      event.preventDefault();
+      if (!auth.currentUser) return showToast('Please login as admin first', 'error');
+      const submitBtn = document.getElementById('submit-btn');
+      const submitText = document.getElementById('submit-btn-text');
+      submitBtn.disabled = true;
+      submitText.textContent = 'Saving...';
+
+      const editId = document.getElementById('edit-product-id').value;
+      try {
+        const uploadedImageUrl = await uploadSelectedImage();
+        const urlInput = document.getElementById('product-image-url-input').value.trim();
+        const finalImageUrl = uploadedImageUrl || urlInput || '';
+
+        const productData = {
+          name: document.getElementById('product-name-input').value,
+          price: parseInt(document.getElementById('product-price-input').value, 10),
+          category: document.getElementById('product-category-input').value,
+          image: document.getElementById('product-image-input').value,
+          image_url: finalImageUrl,
+          description: document.getElementById('product-description-input').value,
+          featured: document.getElementById('product-featured-input').checked,
+          updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+        };
+
+        if (editId) {
+          await db.collection('products').doc(editId).update(productData);
+        } else {
+          await db.collection('products').add({
+            ...productData,
+            createdAt: firebase.firestore.FieldValue.serverTimestamp()
+          });
+        }
+        hideProductForm();
+        showToast(editId ? 'Product updated!' : 'Product added!', 'success');
+      } catch (error) {
+        console.error(error);
+        showToast('Failed to save product', 'error');
+      } finally {
+        submitBtn.disabled = false;
+        submitText.textContent = editId ? 'Update Product' : 'Save Product';
+      }
+    }
+
+    function showDeleteModal(productId) {
+      productToDelete = productId;
+      document.getElementById('delete-modal').classList.remove('hidden');
+    }
+
+    function hideDeleteModal() {
+      productToDelete = null;
+      document.getElementById('delete-modal').classList.add('hidden');
+    }
+
+    async function confirmDelete() {
+      if (!productToDelete) return;
+      try {
+        await db.collection('products').doc(productToDelete).delete();
+        showToast('Product deleted', 'success');
+      } catch (error) {
+        showToast('Failed to delete product', 'error');
+      }
+      hideDeleteModal();
+    }
+
+    initializeAdmin();
+  </script>
+ </body>
+</html>
