@@ -1,9 +1,11 @@
 # Firebase + GitHub Pages Setup (MVP)
 
 ## 1) Update Firebase config
-Edit [js/firebase-web-config.js](/Users/mukulnimker/Documents/GitHub/handmadewithraj/js/firebase-web-config.js):
-- `window.FIREBASE_CONFIG`
-- `window.ADMIN_EMAILS`
+1. Keep template values in `js/firebase-web-config.js` as placeholders.
+2. Create `js/firebase-web-config.local.js` with your real values:
+   - `window.FIREBASE_CONFIG`
+   - `window.ADMIN_EMAILS`
+3. `js/firebase-web-config.local.js` is ignored via `.gitignore`, so real values stay out of git history.
 
 Notes:
 - Keep at least one admin email in `ADMIN_EMAILS`.

@@ -3,13 +3,13 @@
  <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Admin Dashboard - Handmade by Raj</title>
+  <title>Admin Dashboard - Handmade by Mrs. Rajendri</title>
   <script src="https://cdn.tailwindcss.com/3.4.17"></script>
   <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-storage-compat.js"></script>
   <script src="./js/firebase-web-config.js"></script>
+  <script src="./js/firebase-web-config.local.js"></script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500;600;700&family=Nunito+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
@@ -63,7 +63,7 @@
     <div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 h-16 sm:h-20 flex items-center justify-between">
      <div>
       <h1 class="font-serif text-2xl sm:text-3xl font-semibold text-mocha">Admin Dashboard</h1>
-      <p class="text-xs sm:text-sm text-mocha/70">Handmade by Raj</p>
+      <p class="text-xs sm:text-sm text-mocha/70">Handmade by Mrs. Rajendri</p>
      </div>
      <a href="./index.html" class="px-4 py-2 border border-mocha text-mocha rounded-full text-sm hover:bg-mocha hover:text-ivory transition-all">Customer Site</a>
     </div>
@@ -136,7 +136,7 @@
          <div><label class="block text-sm font-medium text-mocha mb-2">Image Emoji</label><input type="text" id="product-image-input" value="🧶" class="w-full px-4 py-3 border border-peach/50 rounded-xl input-field focus:outline-none"></div>
         </div>
         <div><label class="block text-sm font-medium text-mocha mb-2">Image URL (optional)</label><input type="url" id="product-image-url-input" placeholder="https://..." class="w-full px-4 py-3 border border-peach/50 rounded-xl input-field focus:outline-none"></div>
-        <div><label class="block text-sm font-medium text-mocha mb-2">Upload from device (optional)</label><input type="file" id="product-image-file-input" accept="image/*" class="w-full px-4 py-3 border border-peach/50 rounded-xl input-field focus:outline-none bg-white"><p class="text-xs text-mocha/60 mt-2">If you choose a file, it will upload to Firebase Storage and override the URL above.</p></div>
+        <div><label class="block text-sm font-medium text-mocha mb-2">Upload from device (optional)</label><input type="file" id="product-image-file-input" accept="image/*" class="w-full px-4 py-3 border border-peach/50 rounded-xl input-field focus:outline-none bg-white"><p class="text-xs text-mocha/60 mt-2">If you choose a file, it will upload to Cloudinary and override the URL above.</p></div>
         <div><label class="block text-sm font-medium text-mocha mb-2">Description *</label><textarea id="product-description-input" rows="3" required class="w-full px-4 py-3 border border-peach/50 rounded-xl input-field focus:outline-none resize-none"></textarea></div>
         <div class="flex items-center gap-3"><input type="checkbox" id="product-featured-input" class="w-5 h-5 text-terracotta rounded"><label for="product-featured-input" class="text-mocha">Mark as Featured Product</label></div>
         <div class="flex gap-4">
@@ -178,7 +178,6 @@
     let productToDelete = null;
     let db = null;
     let auth = null;
-    let storage = null;
     let unsubscribeProducts = null;
     let unsubscribeCategories = null;
 
@@ -188,6 +187,10 @@
       { key: 'accessories', label: 'Hair Accessories' },
       { key: 'gifts', label: 'Gift Sets' }
     ];
+    const CLOUDINARY_CONFIG = {
+      cloudName: 'dcpievpk0',
+      uploadPreset: 'handmadewithraj'
+    };
 
     function slugifyCategory(name) {
       return name.toLowerCase().trim().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
@@ -341,20 +344,20 @@
     }
 
     async function initializeAdmin() {
+      await cleanupDevServiceWorkers();
       categories = normalizeCategories([]);
       renderAdminCategoryOptions();
       renderAdminCategories();
       updateStats();
 
       if (!window.FIREBASE_CONFIG || window.FIREBASE_CONFIG.apiKey === 'REPLACE_ME') {
-        showToast('Add Firebase config in js/firebase-web-config.js', 'error');
+        showToast('Add Firebase config in js/firebase-web-config.local.js', 'error');
         return;
       }
 
       if (!firebase.apps.length) firebase.initializeApp(window.FIREBASE_CONFIG);
       auth = firebase.auth();
       db = firebase.firestore();
-      storage = firebase.storage();
 
       auth.onAuthStateChanged(async (user) => {
         if (!user) {
@@ -472,13 +475,49 @@
       const file = fileInput.files && fileInput.files[0];
       if (!file) return null;
       if (!file.type.startsWith('image/')) throw new Error('Only image files are allowed');
-      if (!storage) throw new Error('Firebase storage not initialized');
 
-      const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
-      const path = `products/${Date.now()}_${safeName}`;
-      const ref = storage.ref().child(path);
-      const task = await ref.put(file, { contentType: file.type });
-      return task.ref.getDownloadURL();
+      const endpoint = `https://api.cloudinary.com/v1_1/${CLOUDINARY_CONFIG.cloudName}/image/upload`;
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('upload_preset', CLOUDINARY_CONFIG.uploadPreset);
+      formData.append('asset_folder', 'handmadewithraj/assets');
+
+      const response = await fetch(endpoint, { method: 'POST', body: formData });
+      if (!response.ok) {
+        const text = await response.text();
+        throw new Error(`Cloudinary upload failed (${response.status}): ${text}`);
+      }
+      const payload = await response.json();
+      if (!payload.secure_url) throw new Error('Cloudinary did not return secure_url');
+      return payload.secure_url;
+    }
+
+    function getFriendlyFirebaseError(error, fallback = 'Unknown error') {
+      const code = error && error.code ? String(error.code) : '';
+      if (code.includes('permission-denied')) return 'Permission denied. Check Firestore/Storage security rules.';
+      if (code.includes('unauthenticated')) return 'You are logged out. Please login again.';
+      if (code.includes('storage/unauthorized')) return 'Image upload not allowed by storage rules.';
+      if (code.includes('storage/bucket-not-found')) return 'Storage bucket not found. Verify your storage configuration.';
+      if (error && String(error.message || '').includes('Cloudinary upload failed')) return 'Cloudinary rejected upload. Verify unsigned preset name and settings.';
+      if (error && String(error.message || '').includes('Failed to fetch')) {
+        return 'Upload network/CORS failed. Disable stale service worker and verify Cloudinary preset settings.';
+      }
+      return (error && error.message) ? error.message : fallback;
+    }
+
+    async function cleanupDevServiceWorkers() {
+      const isLocalHost = location.hostname === '127.0.0.1' || location.hostname === 'localhost';
+      if (!isLocalHost || !('serviceWorker' in navigator)) return;
+      try {
+        const registrations = await navigator.serviceWorker.getRegistrations();
+        await Promise.all(registrations.map((registration) => registration.unregister()));
+        if ('caches' in window) {
+          const keys = await caches.keys();
+          await Promise.all(keys.map((key) => caches.delete(key)));
+        }
+      } catch (error) {
+        console.warn('Failed to cleanup local service workers', error);
+      }
     }
 
     async function handleProductSubmit(event) {
@@ -491,7 +530,13 @@
 
       const editId = document.getElementById('edit-product-id').value;
       try {
-        const uploadedImageUrl = await uploadSelectedImage();
+        let uploadedImageUrl = null;
+        try {
+          uploadedImageUrl = await uploadSelectedImage();
+        } catch (uploadError) {
+          console.error(uploadError);
+          showToast(`Image upload failed: ${getFriendlyFirebaseError(uploadError)}. Saving without uploaded file.`, 'info');
+        }
         const urlInput = document.getElementById('product-image-url-input').value.trim();
         const finalImageUrl = uploadedImageUrl || urlInput || '';
 
@@ -518,7 +563,7 @@
         showToast(editId ? 'Product updated!' : 'Product added!', 'success');
       } catch (error) {
         console.error(error);
-        showToast('Failed to save product', 'error');
+        showToast(`Failed to save product: ${getFriendlyFirebaseError(error)}`, 'error');
       } finally {
         submitBtn.disabled = false;
         submitText.textContent = editId ? 'Update Product' : 'Save Product';

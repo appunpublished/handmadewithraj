@@ -1,14 +1,14 @@
 window.FIREBASE_CONFIG = {
-  apiKey: "AIzaSyDVpcNO7_QoGWXjeDjSrJzoAb2NjkeIttw",
-  authDomain: "handmadewithraj.firebaseapp.com",
-  projectId: "handmadewithraj",
-  storageBucket: "handmadewithraj.firebasestorage.app",
-  messagingSenderId: "140236995020",
-  appId: "1:140236995020:web:54096c967ffc1ce99d0569",
-  measurementId: "G-F2BV9J04QM"
+  apiKey: "REPLACE_ME",
+  authDomain: "REPLACE_ME.firebaseapp.com",
+  projectId: "REPLACE_ME",
+  storageBucket: "REPLACE_ME.appspot.com",
+  messagingSenderId: "REPLACE_ME",
+  appId: "REPLACE_ME",
+  measurementId: "REPLACE_ME"
 };
 
-// Leave empty to allow any authenticated user (not recommended).
+// Keep this list restricted to trusted admin emails.
 window.ADMIN_EMAILS = [
-  "suroopihandlooms@gmail.com"
+  "owner@example.com"
 ];
